@@ -1,0 +1,7 @@
+core = "6.x"
+dependencies[] = "imagefield"
+description = "dynamic backgrounds"
+name = "dynamic_backgrounds"
+package = "Other"
+files[] = dynamic_backgrounds.install
+files[] = dynamic_backgrounds.module

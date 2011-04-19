@@ -1,0 +1,117 @@
+<?php
+function dynamic_backgrounds_init(){
+//drupal_set_message('<pre>'.print_r( , true).'</pre>');
+
+  //This variable will store the selected file id
+  $selected_fid = NULL;
+  
+  //Select all variables of widget_state for this module and for each (until we find our first random file) look for fid
+	$results = db_query("SELECT name FROM {variable} WHERE name LIKE 'dynamic\_backgrounds\_widget\_state_%%' ORDER BY RAND()");
+  while($row = db_fetch_array($results)){
+    //If we already found one in the previous loop, this loop is not necessary anymore, exit.
+    if(is_numeric($selected_fid)){
+      break;
+    }
+    
+    //Make sure the setting for Dynamic background usage is set
+    if(variable_get($row['name'], 0)){
+      //Use variable name to determine field name
+      $field_type = str_replace('dynamic_backgrounds_widget_state_', '', $row['name']);
+      //Get any content type using this field randomt ly, and for each of the content types, look for content that has a file attached to the field
+      $content_type_results = db_query("SELECT type_name FROM {content_node_field_instance} WHERE field_name = '%s' ORDER BY RAND()", $field_type);
+      while($ct = db_fetch_array($content_type_results)){
+        if(is_numeric($selected_fid)){
+          break;
+        }
+        
+        //Load randomly selected field/ct pair with dynamic background settings set to 1
+        $selected = content_fields($field_type, $ct['type_name']);
+        
+        if($selected['db_storage']){
+          //If only one instance with one value
+          $table = 'content_type_'.$ct['type_name'];
+          $field = $field_type.'_fid';
+          //drupal_set_message('<pre>'.print_r( "SELECT ct.$field as file_id FROM {$table} ct LEFT JOIN {node} n ON n.vid = ct.vid WHERE n.status=1 AND ct.$field IS NOT NULL ORDER BY RAND() LIMIT 1", true).'</pre>');
+          $selected_fid = db_result(db_query("SELECT ct.%s as file_id FROM {%s} ct LEFT JOIN {node} n ON n.vid = ct.vid WHERE n.status=1 AND ct.%s IS NOT NULL ORDER BY RAND() LIMIT 1", $field, $table, $field));
+        }else{
+          //If multi value or multi-instance
+          $table = 'content_'.$field_type;
+          $field = $field_type.'_fid';
+          //drupal_set_message('<pre>'.print_r( "SELECT ct.$field as file_id FROM {node} n LEFT JOIN {$table} ct ON ct.vid = n.vid WHERE type = '".$ct['type_name']."' AND n.status=1 AND ct.$field IS NOT NULL ORDER BY RAND() LIMIT 1", true).'</pre>');
+          $selected_fid = db_result(db_query("SELECT ct.%s as file_id FROM {node} n LEFT JOIN {%s} ct ON ct.vid = n.vid WHERE type = '%s' AND n.status=1 AND ct.%s IS NOT NULL ORDER BY RAND() LIMIT 1", $field, $table, $ct['type_name'], $field));
+        }
+        
+      }
+    }
+  }
+  
+  $file = db_result(db_query("SELECT filepath FROM {files} WHERE fid = %d LIMIT 1", $selected_fid));
+  
+  if(module_exists('imagecache') && variable_get('dynamic_backgrounds_preset', FALSE)){
+    //Used to use a preset
+    theme_imagecache(variable_get('dynamic_backgrounds_preset', 'default'), $file);
+    $file = imagecache_create_url(variable_get('dynamic_backgrounds_preset', 'default'), $file);
+    drupal_add_js("jQuery(document).ready(function () { $('".variable_get('dynamic_backgrounds_apply_rule','')."').css( 'background-image', 'url(".$file.")' ) });", 'inline');
+  }else{
+    //use regular theme function
+    drupal_set_message(theme('image', $file));
+    drupal_add_js("jQuery(document).ready(function () { $('".variable_get('dynamic_backgrounds_apply_rule','')."').css( 'background-image', 'url(/".$file.")' ) });", 'inline');
+  }
+
+  /* DRUPAL 7 TODO
+  $field = field_info_field('field_bg');
+  drupal_set_message('<pre>'.print_r( $field, true).'</pre>');
+  */
+  
+}
+
+function dynamic_backgrounds_perm() {
+  return array(
+    'administer dynamic backgrounds',
+  );
+}
+
+function dynamic_backgrounds_menu() {
+  $items['admin/settings/dynamicbg'] = array(
+    'title' => 'Dynamic Backgrounds',
+    'description' => 'Dynamic Backgrounds',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('dynamic_backgrounds_admin_settings'),
+    'access arguments' => array('administer dynamic backgrounds'),
+    'file' => 'dynamic_backgrounds.admin.inc',
+  );
+ return $items; 
+}
+
+function dynamic_backgrounds_form_alter(&$form, &$form_state, $form_id){
+  if($form_id=='content_field_edit_form'){
+    if($form['basic']['widget_type']['#default_value'] == 'imagefield_widget'){
+      $form['dynamic_backgrounds'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Dynamic Background settings'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+        '#weight' => 0,
+      );
+
+      $form['dynamic_backgrounds']['dynamic_backgrounds_widget_state'] = array(
+        '#type' => 'radios',
+        '#title' => t('Dynamic Backgrounds Options'),
+        '#options' => array(
+          0 => t('Disabled'),
+          1 => t('Use this field to pick dynamic backgrounds'),
+        ),
+        '#default_value' => variable_get('dynamic_backgrounds_widget_state_'.$form['#field']['field_name'], '0'),
+        '#description' => t('Select the usage of Dynamic Backgrounds within this Content Type.'),
+
+      );
+      $form['#submit'][] = 'dynamic_backgrounds_content_field_submit';
+    
+    }
+  }
+  return $form;
+}
+
+function dynamic_backgrounds_content_field_submit($form, &$form_state){
+  variable_set('dynamic_backgrounds_widget_state_'.$form_state['values']['field_name'], $form_state['values']['dynamic_backgrounds_widget_state']);
+}

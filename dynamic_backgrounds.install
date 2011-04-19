@@ -1,0 +1,13 @@
+<?php
+
+function news_date_field_schema($field) {
+  return array(
+    'columns' => array(
+      'news_date' => array(
+        'type' => 'imagefield',
+        'not null' => TRUE,
+        'default'  => 0,
+      ),
+    ),
+  );
+}
