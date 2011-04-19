@@ -6,7 +6,7 @@ function dynamic_backgrounds_init(){
   $selected_fid = NULL;
   
   //Select all variables of widget_state for this module and for each (until we find our first random file) look for fid
-	$results = db_query("SELECT name FROM {variable} WHERE name LIKE 'dynamic\_backgrounds\_widget\_state_%%' ORDER BY RAND()");
+  $results = db_query("SELECT name FROM {variable} WHERE name LIKE 'dynamic\_backgrounds\_widget\_state_%%' ORDER BY RAND()");
   while($row = db_fetch_array($results)){
     //If we already found one in the previous loop, this loop is not necessary anymore, exit.
     if(is_numeric($selected_fid)){
