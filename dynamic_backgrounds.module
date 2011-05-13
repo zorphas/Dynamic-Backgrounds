@@ -54,7 +54,6 @@ function dynamic_backgrounds_init(){
     drupal_add_js("jQuery(document).ready(function () { $('".variable_get('dynamic_backgrounds_apply_rule','')."').css( 'background-image', 'url(".$file.")' ) });", 'inline');
   }else{
     //use regular theme function
-    drupal_set_message(theme('image', $file));
     drupal_add_js("jQuery(document).ready(function () { $('".variable_get('dynamic_backgrounds_apply_rule','')."').css( 'background-image', 'url(/".$file.")' ) });", 'inline');
   }
 
